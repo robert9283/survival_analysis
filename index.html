@@ -195,6 +195,7 @@ function initCars(n) {
     id: i + 1,
     color,
     angle: Math.random() * TWO_PI,
+    totalAngle: 0,
     laps: 0,
     destroyed: false,
   }));
@@ -441,7 +442,7 @@ function drawCar(car) {
 function updateBoard() {
   const sorted = [...cars].sort((a, b) => b.laps - a.laps);
   document.getElementById('board').innerHTML = sorted.map(car => {
-    const dist = (car.laps * 1000).toLocaleString() + ' m';
+    const dist = Math.round(car.totalAngle / TWO_PI * 1000).toLocaleString() + ' m';
     return `
     <div class="car-row${car.destroyed ? ' destroyed' : ''}">
       <div class="swatch" style="background:${car.color}"></div>
@@ -474,6 +475,7 @@ function frame() {
     if (car.destroyed) continue;
     const prev = car.angle;
     car.angle = (car.angle + SPEED) % TWO_PI;
+    car.totalAngle += SPEED;
     if (prev > TWO_PI * 0.75 && car.angle < TWO_PI * 0.25) {
       car.laps++;
     }
