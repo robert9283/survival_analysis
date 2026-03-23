@@ -540,12 +540,13 @@ document.getElementById('stop-btn').addEventListener('click', function () {
 
 document.getElementById('dl-btn').addEventListener('click', function () {
   const sorted = [...cars].sort((a, b) => b.laps - a.laps);
-  const rows = [['Car', 'Status', 'Laps', 'Distance (m)']];
+  const rows = [['Car', 'Status', 'Laps', 'Distance (m)', 'Censored']];
   for (const car of sorted) {
     const status = car.destroyed ? 'destroyed' : 'alive';
     const laps = car.laps + (car.destroyed ? '' : '+');
     const dist = Math.round(car.totalAngle / TWO_PI * 1000);
-    rows.push([`Car ${car.id}`, status, laps, dist]);
+    const censored = car.destroyed ? 1 : 0;
+    rows.push([`Car ${car.id}`, status, laps, dist, censored]);
   }
   const csv = rows.map(r => r.join(',')).join('\n');
   const a = document.createElement('a');
