@@ -46,12 +46,15 @@
       border-bottom: 1px solid #1e1e40;
     }
     .car-row:last-child { border-bottom: none; }
+    .car-row.destroyed { opacity: 0.45; }
+    .car-row.destroyed .car-label { text-decoration: line-through; }
     .swatch {
       width: 22px;
       height: 13px;
       border-radius: 3px;
       flex-shrink: 0;
     }
+    .car-row.destroyed .swatch { filter: grayscale(1); }
     .car-label { flex: 1; font-size: 13px; color: #ccc; }
     .lap-count {
       font-size: 14px;
@@ -60,6 +63,7 @@
       min-width: 28px;
       text-align: right;
     }
+    .destroyed-icon { font-size: 12px; margin-left: 2px; }
 
     /* ── controls panel ── */
     .controls {
@@ -160,12 +164,15 @@ const ALL_COLORS = [
 let lightningMean = 1800;  // ms — controlled by slider
 let cars = [];
 
+const HIT_RADIUS = 28; // px — how close a strike must be to destroy a car
+
 function initCars(n) {
   cars = ALL_COLORS.slice(0, n).map((color, i) => ({
     id: i + 1,
     color,
     angle: Math.random() * TWO_PI,
     laps: 0,
+    destroyed: false,
   }));
 }
 
@@ -188,6 +195,7 @@ document.getElementById('cars-slider').addEventListener('input', function () {
 
 const LIGHTNING_DURATION_MS = 350;
 const lightnings = [];
+const explosions = []; // { x, y, born }
 let nextLightningAt = Date.now() + sampleExponential(lightningMean);
 
 function sampleExponential(mean) {
@@ -199,6 +207,18 @@ function spawnLightning() {
   const tx = cx + Math.cos(angle) * R;
   const ty = cy + Math.sin(angle) * R;
   lightnings.push({ tx, ty, born: Date.now(), bolt: buildBolt(tx, ty) });
+
+  // Check every active car for a hit
+  for (const car of cars) {
+    if (car.destroyed) continue;
+    const cx2 = cx + Math.cos(car.angle) * R;
+    const cy2 = cy + Math.sin(car.angle) * R;
+    const dist = Math.hypot(cx2 - tx, cy2 - ty);
+    if (dist <= HIT_RADIUS) {
+      car.destroyed = true;
+      explosions.push({ x: cx2, y: cy2, born: Date.now() });
+    }
+  }
 }
 
 function buildBolt(tx, ty) {
@@ -255,6 +275,41 @@ function strokeBolt(pts) {
   ctx.moveTo(pts[0].x, pts[0].y);
   for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
   ctx.stroke();
+}
+
+const EXPLOSION_DURATION_MS = 600;
+
+function drawExplosions(now) {
+  for (let i = explosions.length - 1; i >= 0; i--) {
+    const ex = explosions[i];
+    const age = now - ex.born;
+    if (age > EXPLOSION_DURATION_MS) { explosions.splice(i, 1); continue; }
+
+    const t = age / EXPLOSION_DURATION_MS; // 0 → 1
+    const alpha = 1 - t;
+    const radius = 8 + t * 36;
+
+    // Expanding ring
+    ctx.save();
+    ctx.shadowColor = `rgba(255,160,50,${alpha})`;
+    ctx.shadowBlur = 16;
+    ctx.strokeStyle = `rgba(255,200,80,${alpha})`;
+    ctx.lineWidth = 3 * (1 - t);
+    ctx.beginPath();
+    ctx.arc(ex.x, ex.y, radius, 0, TWO_PI);
+    ctx.stroke();
+
+    // Inner fireball
+    const gr = ctx.createRadialGradient(ex.x, ex.y, 0, ex.x, ex.y, radius * 0.6);
+    gr.addColorStop(0, `rgba(255,240,100,${alpha * 0.9})`);
+    gr.addColorStop(0.5, `rgba(255,120,20,${alpha * 0.6})`);
+    gr.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = gr;
+    ctx.beginPath();
+    ctx.arc(ex.x, ex.y, radius * 0.6, 0, TWO_PI);
+    ctx.fill();
+    ctx.restore();
+  }
 }
 
 // ── drawing helpers ───────────────────────────────────────────────────────────
@@ -344,9 +399,9 @@ function drawCar(car) {
 function updateBoard() {
   const sorted = [...cars].sort((a, b) => b.laps - a.laps);
   document.getElementById('board').innerHTML = sorted.map(car => `
-    <div class="car-row">
+    <div class="car-row${car.destroyed ? ' destroyed' : ''}">
       <div class="swatch" style="background:${car.color}"></div>
-      <span class="car-label">Car ${car.id}</span>
+      <span class="car-label">Car ${car.id}${car.destroyed ? '<span class="destroyed-icon">&#9889;</span>' : ''}</span>
       <span class="lap-count">${car.laps}</span>
     </div>
   `).join('');
@@ -368,8 +423,10 @@ function frame() {
     nextLightningAt = now + sampleExponential(lightningMean);
   }
   drawLightnings(now);
+  drawExplosions(now);
 
   for (const car of cars) {
+    if (car.destroyed) continue;
     const prev = car.angle;
     car.angle = (car.angle + SPEED) % TWO_PI;
     if (prev > TWO_PI * 0.75 && car.angle < TWO_PI * 0.25) {
