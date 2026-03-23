@@ -103,6 +103,22 @@
     #stop-btn:hover { background: #c03030; }
     #stop-btn.stopped { background: #3a9e5f; }
     #stop-btn.stopped:hover { background: #2e7d4f; }
+    #dl-btn {
+      padding: 10px 28px;
+      border: none;
+      border-radius: 8px;
+      font-family: 'Courier New', monospace;
+      font-size: 13px;
+      font-weight: bold;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      cursor: pointer;
+      background: #3a6fd8;
+      color: #fff;
+      display: none;
+      transition: background 0.15s;
+    }
+    #dl-btn:hover { background: #2a55b0; }
     .ctrl {
       display: flex;
       flex-direction: column;
@@ -182,6 +198,7 @@
     <input type="range" id="radius-slider" min="5" max="120" step="1" value="28">
   </div>
   <button id="stop-btn">Stop</button>
+  <button id="dl-btn">Download CSV</button>
 </div>
 
 <script>
@@ -518,6 +535,24 @@ document.getElementById('stop-btn').addEventListener('click', function () {
   } else {
     updateBoard(); // refresh immediately so "+" appears
   }
+  document.getElementById('dl-btn').style.display = running ? 'none' : 'inline-block';
+});
+
+document.getElementById('dl-btn').addEventListener('click', function () {
+  const sorted = [...cars].sort((a, b) => b.laps - a.laps);
+  const rows = [['Car', 'Status', 'Laps', 'Distance (m)']];
+  for (const car of sorted) {
+    const status = car.destroyed ? 'destroyed' : 'alive';
+    const laps = car.laps + (car.destroyed ? '' : '+');
+    const dist = Math.round(car.totalAngle / TWO_PI * 1000);
+    rows.push([`Car ${car.id}`, status, laps, dist]);
+  }
+  const csv = rows.map(r => r.join(',')).join('\n');
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
+  a.download = 'race_results.csv';
+  a.click();
+  URL.revokeObjectURL(a.href);
 });
 
 frame();
