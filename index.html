@@ -140,6 +140,13 @@
     </div>
     <input type="range" id="cars-slider" min="1" max="20" step="1" value="10">
   </div>
+  <div class="ctrl">
+    <div class="ctrl-header">
+      <span class="ctrl-label">Destruction radius</span>
+      <span class="ctrl-value"><span id="radius-val">28</span> px</span>
+    </div>
+    <input type="range" id="radius-slider" min="5" max="120" step="1" value="28">
+  </div>
 </div>
 
 <script>
@@ -164,7 +171,7 @@ const ALL_COLORS = [
 let lightningMean = 1800;  // ms — controlled by slider
 let cars = [];
 
-const HIT_RADIUS = 28; // px — how close a strike must be to destroy a car
+let hitRadius = 28; // px — how close a strike must be to destroy a car
 
 function initCars(n) {
   cars = ALL_COLORS.slice(0, n).map((color, i) => ({
@@ -191,6 +198,11 @@ document.getElementById('cars-slider').addEventListener('input', function () {
   initCars(n);
 });
 
+document.getElementById('radius-slider').addEventListener('input', function () {
+  hitRadius = +this.value;
+  document.getElementById('radius-val').textContent = this.value;
+});
+
 // ── lightning ─────────────────────────────────────────────────────────────────
 
 const LIGHTNING_DURATION_MS = 350;
@@ -206,7 +218,7 @@ function spawnLightning() {
   const angle = Math.random() * TWO_PI;
   const tx = cx + Math.cos(angle) * R;
   const ty = cy + Math.sin(angle) * R;
-  lightnings.push({ tx, ty, born: Date.now(), bolt: buildBolt(tx, ty) });
+  lightnings.push({ tx, ty, born: Date.now(), bolt: buildBolt(tx, ty), radius: hitRadius });
 
   // Check every active car for a hit
   for (const car of cars) {
@@ -214,7 +226,7 @@ function spawnLightning() {
     const cx2 = cx + Math.cos(car.angle) * R;
     const cy2 = cy + Math.sin(car.angle) * R;
     const dist = Math.hypot(cx2 - tx, cy2 - ty);
-    if (dist <= HIT_RADIUS) {
+    if (dist <= hitRadius) {
       car.destroyed = true;
       explosions.push({ x: cx2, y: cy2, born: Date.now() });
     }
@@ -267,6 +279,19 @@ function drawLightnings(now) {
     ctx.beginPath();
     ctx.arc(ln.tx, ln.ty, 40, 0, TWO_PI);
     ctx.fill();
+
+    // Destruction radius ring
+    ctx.save();
+    ctx.strokeStyle = `rgba(255,80,80,${alpha * 0.85})`;
+    ctx.lineWidth = 2;
+    ctx.setLineDash([6, 4]);
+    ctx.shadowColor = `rgba(255,80,80,${alpha})`;
+    ctx.shadowBlur = 8;
+    ctx.beginPath();
+    ctx.arc(ln.tx, ln.ty, ln.radius, 0, TWO_PI);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.restore();
   }
 }
 
