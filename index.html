@@ -91,6 +91,88 @@ const cars = COLORS.map((color, i) => ({
 }));
 cars.forEach(c => { c.prevAngle = c.angle; });
 
+// ── lightning ─────────────────────────────────────────────────────────────────
+
+// Exponential inter-arrival: mean = LIGHTNING_MEAN_MS milliseconds
+const LIGHTNING_MEAN_MS = 1800;
+const LIGHTNING_DURATION_MS = 350; // how long each bolt is visible
+
+const lightnings = []; // active bolt animations
+let nextLightningAt = Date.now() + sampleExponential(LIGHTNING_MEAN_MS);
+
+function sampleExponential(mean) {
+  return -mean * Math.log(1 - Math.random());
+}
+
+function spawnLightning() {
+  // Strike position: uniform over the canvas
+  const tx = Math.random() * W;
+  const ty = Math.random() * H;
+  lightnings.push({ tx, ty, born: Date.now(), bolt: buildBolt(tx, ty) });
+}
+
+// Build a jagged polyline from the top of the canvas down to (tx, ty)
+function buildBolt(tx, ty) {
+  const pts = [{ x: tx + (Math.random() - 0.5) * 60, y: 0 }];
+  const steps = 8 + Math.floor(Math.random() * 5);
+  for (let i = 1; i <= steps; i++) {
+    const t = i / steps;
+    const x = pts[0].x + (tx - pts[0].x) * t + (Math.random() - 0.5) * 40 * (1 - t);
+    const y = ty * t;
+    pts.push({ x, y });
+  }
+  pts.push({ x: tx, y: ty });
+  return pts;
+}
+
+function drawLightnings(now) {
+  for (let i = lightnings.length - 1; i >= 0; i--) {
+    const ln = lightnings[i];
+    const age = now - ln.born;
+    if (age > LIGHTNING_DURATION_MS) { lightnings.splice(i, 1); continue; }
+
+    const t = age / LIGHTNING_DURATION_MS;         // 0 → 1 as bolt fades
+    const alpha = t < 0.15 ? t / 0.15 : 1 - (t - 0.15) / 0.85; // quick flash, slow fade
+
+    // Screen flash at peak
+    if (t < 0.15) {
+      ctx.fillStyle = `rgba(200,220,255,${0.08 * alpha})`;
+      ctx.fillRect(0, 0, W, H);
+    }
+
+    // Glow pass (thick, blurred)
+    ctx.save();
+    ctx.shadowColor = `rgba(160,200,255,${alpha})`;
+    ctx.shadowBlur = 24;
+    ctx.strokeStyle = `rgba(200,230,255,${alpha * 0.6})`;
+    ctx.lineWidth = 6;
+    strokeBolt(ln.bolt);
+
+    // Core pass (thin, bright)
+    ctx.shadowBlur = 8;
+    ctx.strokeStyle = `rgba(255,255,255,${alpha})`;
+    ctx.lineWidth = 2;
+    strokeBolt(ln.bolt);
+    ctx.restore();
+
+    // Impact glow at strike point
+    const gr = ctx.createRadialGradient(ln.tx, ln.ty, 0, ln.tx, ln.ty, 40);
+    gr.addColorStop(0, `rgba(200,220,255,${alpha * 0.7})`);
+    gr.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = gr;
+    ctx.beginPath();
+    ctx.arc(ln.tx, ln.ty, 40, 0, TWO_PI);
+    ctx.fill();
+  }
+}
+
+function strokeBolt(pts) {
+  ctx.beginPath();
+  ctx.moveTo(pts[0].x, pts[0].y);
+  for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
+  ctx.stroke();
+}
+
 // ── drawing helpers ──────────────────────────────────────────────────────────
 
 function drawTrack() {
@@ -202,6 +284,7 @@ function updateBoard() {
 // ── animation loop ───────────────────────────────────────────────────────────
 
 function frame() {
+  const now = Date.now();
   ctx.clearRect(0, 0, W, H);
 
   // Background
@@ -209,6 +292,13 @@ function frame() {
   ctx.fillRect(0, 0, W, H);
 
   drawTrack();
+
+  // Schedule & draw lightning
+  if (now >= nextLightningAt) {
+    spawnLightning();
+    nextLightningAt = now + sampleExponential(LIGHTNING_MEAN_MS);
+  }
+  drawLightnings(now);
 
   for (const car of cars) {
     const prev = car.angle;
