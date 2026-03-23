@@ -8,11 +8,14 @@
     body {
       background: #0d0d1a;
       display: flex;
+      flex-direction: column;
       justify-content: center;
       align-items: center;
       min-height: 100vh;
       font-family: 'Courier New', monospace;
       color: #eee;
+      gap: 20px;
+      padding: 20px;
     }
     .container {
       display: flex;
@@ -57,6 +60,56 @@
       min-width: 28px;
       text-align: right;
     }
+
+    /* ── controls panel ── */
+    .controls {
+      background: #12122a;
+      border: 1px solid #2a2a55;
+      border-radius: 12px;
+      padding: 16px 24px;
+      display: flex;
+      gap: 40px;
+      align-items: center;
+    }
+    .ctrl {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      min-width: 200px;
+    }
+    .ctrl-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+    }
+    .ctrl-label {
+      font-size: 12px;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: #888;
+    }
+    .ctrl-value {
+      font-size: 14px;
+      font-weight: bold;
+      color: #f0c040;
+    }
+    input[type=range] {
+      -webkit-appearance: none;
+      width: 100%;
+      height: 4px;
+      border-radius: 2px;
+      background: #2a2a55;
+      outline: none;
+      cursor: pointer;
+    }
+    input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: #f0c040;
+      cursor: pointer;
+    }
   </style>
 </head>
 <body>
@@ -67,6 +120,24 @@
     <div id="board"></div>
   </div>
 </div>
+
+<div class="controls">
+  <div class="ctrl">
+    <div class="ctrl-header">
+      <span class="ctrl-label">Mean time between strikes</span>
+      <span class="ctrl-value"><span id="mean-val">1800</span> ms</span>
+    </div>
+    <input type="range" id="mean-slider" min="200" max="6000" step="100" value="1800">
+  </div>
+  <div class="ctrl">
+    <div class="ctrl-header">
+      <span class="ctrl-label">Number of cars</span>
+      <span class="ctrl-value" id="cars-val">10</span>
+    </div>
+    <input type="range" id="cars-slider" min="1" max="20" step="1" value="10">
+  </div>
+</div>
+
 <script>
 const canvas = document.getElementById('c');
 const ctx = canvas.getContext('2d');
@@ -77,42 +148,59 @@ const TW = 44;       // track width
 const SPEED = 0.009; // radians per frame (same for all cars)
 const TWO_PI = Math.PI * 2;
 
-const COLORS = [
+const ALL_COLORS = [
   '#ff5252', '#ffd740', '#40c4ff', '#69f0ae', '#ff6d00',
-  '#e040fb', '#00e5ff', '#ff4081', '#b2ff59', '#ffab40'
+  '#e040fb', '#00e5ff', '#ff4081', '#b2ff59', '#ffab40',
+  '#ea80fc', '#64ffda', '#ff6e40', '#ccff90', '#80d8ff',
+  '#a7ffeb', '#ff9191', '#ffe57f', '#b388ff', '#84ffff',
 ];
 
-const cars = COLORS.map((color, i) => ({
-  id: i + 1,
-  color,
-  angle: Math.random() * TWO_PI,
-  laps: 0,
-  prevAngle: null,
-}));
-cars.forEach(c => { c.prevAngle = c.angle; });
+// ── simulation state ──────────────────────────────────────────────────────────
+
+let lightningMean = 1800;  // ms — controlled by slider
+let cars = [];
+
+function initCars(n) {
+  cars = ALL_COLORS.slice(0, n).map((color, i) => ({
+    id: i + 1,
+    color,
+    angle: Math.random() * TWO_PI,
+    laps: 0,
+  }));
+}
+
+initCars(10);
+
+// ── controls ──────────────────────────────────────────────────────────────────
+
+document.getElementById('mean-slider').addEventListener('input', function () {
+  lightningMean = +this.value;
+  document.getElementById('mean-val').textContent = this.value;
+});
+
+document.getElementById('cars-slider').addEventListener('input', function () {
+  const n = +this.value;
+  document.getElementById('cars-val').textContent = n;
+  initCars(n);
+});
 
 // ── lightning ─────────────────────────────────────────────────────────────────
 
-// Exponential inter-arrival: mean = LIGHTNING_MEAN_MS milliseconds
-const LIGHTNING_MEAN_MS = 1800;
-const LIGHTNING_DURATION_MS = 350; // how long each bolt is visible
-
-const lightnings = []; // active bolt animations
-let nextLightningAt = Date.now() + sampleExponential(LIGHTNING_MEAN_MS);
+const LIGHTNING_DURATION_MS = 350;
+const lightnings = [];
+let nextLightningAt = Date.now() + sampleExponential(lightningMean);
 
 function sampleExponential(mean) {
   return -mean * Math.log(1 - Math.random());
 }
 
 function spawnLightning() {
-  // Strike position: uniform angle on the track centre line (radius R)
   const angle = Math.random() * TWO_PI;
   const tx = cx + Math.cos(angle) * R;
   const ty = cy + Math.sin(angle) * R;
   lightnings.push({ tx, ty, born: Date.now(), bolt: buildBolt(tx, ty) });
 }
 
-// Build a jagged polyline from the top of the canvas down to (tx, ty)
 function buildBolt(tx, ty) {
   const pts = [{ x: tx + (Math.random() - 0.5) * 60, y: 0 }];
   const steps = 8 + Math.floor(Math.random() * 5);
@@ -132,31 +220,26 @@ function drawLightnings(now) {
     const age = now - ln.born;
     if (age > LIGHTNING_DURATION_MS) { lightnings.splice(i, 1); continue; }
 
-    const t = age / LIGHTNING_DURATION_MS;         // 0 → 1 as bolt fades
-    const alpha = t < 0.15 ? t / 0.15 : 1 - (t - 0.15) / 0.85; // quick flash, slow fade
+    const t = age / LIGHTNING_DURATION_MS;
+    const alpha = t < 0.15 ? t / 0.15 : 1 - (t - 0.15) / 0.85;
 
-    // Screen flash at peak
     if (t < 0.15) {
       ctx.fillStyle = `rgba(200,220,255,${0.08 * alpha})`;
       ctx.fillRect(0, 0, W, H);
     }
 
-    // Glow pass (thick, blurred)
     ctx.save();
     ctx.shadowColor = `rgba(160,200,255,${alpha})`;
     ctx.shadowBlur = 24;
     ctx.strokeStyle = `rgba(200,230,255,${alpha * 0.6})`;
     ctx.lineWidth = 6;
     strokeBolt(ln.bolt);
-
-    // Core pass (thin, bright)
     ctx.shadowBlur = 8;
     ctx.strokeStyle = `rgba(255,255,255,${alpha})`;
     ctx.lineWidth = 2;
     strokeBolt(ln.bolt);
     ctx.restore();
 
-    // Impact glow at strike point
     const gr = ctx.createRadialGradient(ln.tx, ln.ty, 0, ln.tx, ln.ty, 40);
     gr.addColorStop(0, `rgba(200,220,255,${alpha * 0.7})`);
     gr.addColorStop(1, 'rgba(0,0,0,0)');
@@ -174,37 +257,32 @@ function strokeBolt(pts) {
   ctx.stroke();
 }
 
-// ── drawing helpers ──────────────────────────────────────────────────────────
+// ── drawing helpers ───────────────────────────────────────────────────────────
 
 function drawTrack() {
-  // Outer grass fill
   ctx.beginPath();
   ctx.arc(cx, cy, R + TW * 0.85, 0, TWO_PI);
   ctx.fillStyle = '#1a5c2a';
   ctx.fill();
 
-  // Tarmac ring
   ctx.beginPath();
   ctx.arc(cx, cy, R, 0, TWO_PI);
   ctx.strokeStyle = '#3a3a3a';
   ctx.lineWidth = TW;
   ctx.stroke();
 
-  // Kerb stripe (outer edge)
   ctx.beginPath();
   ctx.arc(cx, cy, R + TW / 2 - 3, 0, TWO_PI);
   ctx.strokeStyle = '#cc2222';
   ctx.lineWidth = 5;
   ctx.stroke();
 
-  // Kerb stripe (inner edge)
   ctx.beginPath();
   ctx.arc(cx, cy, R - TW / 2 + 3, 0, TWO_PI);
   ctx.strokeStyle = '#cc2222';
   ctx.lineWidth = 5;
   ctx.stroke();
 
-  // Dashed centre line
   ctx.beginPath();
   ctx.arc(cx, cy, R, 0, TWO_PI);
   ctx.strokeStyle = 'rgba(255,255,255,0.18)';
@@ -213,16 +291,13 @@ function drawTrack() {
   ctx.stroke();
   ctx.setLineDash([]);
 
-  // Inner grass circle
   ctx.beginPath();
   ctx.arc(cx, cy, R - TW / 2 - 2, 0, TWO_PI);
   ctx.fillStyle = '#1a5c2a';
   ctx.fill();
 
-  // Start / finish line (at angle 0, i.e., rightmost point)
   ctx.save();
   ctx.translate(cx, cy);
-  // checkerboard-style bar
   const barW = TW - 6;
   const segments = 6;
   const segH = barW / segments;
@@ -239,28 +314,23 @@ function drawCar(car) {
 
   ctx.save();
   ctx.translate(x, y);
-  // car faces tangent direction (angle + 90°)
   ctx.rotate(car.angle + Math.PI / 2);
 
   const bw = 10, bh = 20;
 
-  // Shadow
   ctx.fillStyle = 'rgba(0,0,0,0.35)';
   ctx.fillRect(-bw / 2 + 2, -bh / 2 + 2, bw, bh);
 
-  // Body
   ctx.fillStyle = car.color;
   ctx.beginPath();
   ctx.roundRect(-bw / 2, -bh / 2, bw, bh, 3);
   ctx.fill();
 
-  // Windshield
   ctx.fillStyle = 'rgba(0,0,0,0.55)';
   ctx.beginPath();
   ctx.roundRect(-bw / 2 + 2, -bh / 2 + 2, bw - 4, 7, 1);
   ctx.fill();
 
-  // Rear window
   ctx.fillStyle = 'rgba(0,0,0,0.4)';
   ctx.beginPath();
   ctx.roundRect(-bw / 2 + 2, bh / 2 - 8, bw - 4, 5, 1);
@@ -269,7 +339,7 @@ function drawCar(car) {
   ctx.restore();
 }
 
-// ── scoreboard ───────────────────────────────────────────────────────────────
+// ── scoreboard ────────────────────────────────────────────────────────────────
 
 function updateBoard() {
   const sorted = [...cars].sort((a, b) => b.laps - a.laps);
@@ -282,34 +352,29 @@ function updateBoard() {
   `).join('');
 }
 
-// ── animation loop ───────────────────────────────────────────────────────────
+// ── animation loop ────────────────────────────────────────────────────────────
 
 function frame() {
   const now = Date.now();
   ctx.clearRect(0, 0, W, H);
 
-  // Background
   ctx.fillStyle = '#0d0d1a';
   ctx.fillRect(0, 0, W, H);
 
   drawTrack();
 
-  // Schedule & draw lightning
   if (now >= nextLightningAt) {
     spawnLightning();
-    nextLightningAt = now + sampleExponential(LIGHTNING_MEAN_MS);
+    nextLightningAt = now + sampleExponential(lightningMean);
   }
   drawLightnings(now);
 
   for (const car of cars) {
     const prev = car.angle;
     car.angle = (car.angle + SPEED) % TWO_PI;
-
-    // Lap completed when crossing the start/finish line (angle wraps 2π→0)
     if (prev > TWO_PI * 0.75 && car.angle < TWO_PI * 0.25) {
       car.laps++;
     }
-
     drawCar(car);
   }
 
