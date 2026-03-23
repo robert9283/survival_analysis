@@ -105,9 +105,10 @@ function sampleExponential(mean) {
 }
 
 function spawnLightning() {
-  // Strike position: uniform over the canvas
-  const tx = Math.random() * W;
-  const ty = Math.random() * H;
+  // Strike position: uniform angle on the track centre line (radius R)
+  const angle = Math.random() * TWO_PI;
+  const tx = cx + Math.cos(angle) * R;
+  const ty = cy + Math.sin(angle) * R;
   lightnings.push({ tx, ty, born: Date.now(), bolt: buildBolt(tx, ty) });
 }
 
