@@ -252,6 +252,20 @@
     </div>
     <input type="range" id="radius-slider" min="5" max="120" step="1" value="28">
   </div>
+  <div class="ctrl">
+    <div class="ctrl-header">
+      <span class="ctrl-label" style="color:#ff8060">Team 1 survival</span>
+      <span class="ctrl-value" id="surv1-val">0%</span>
+    </div>
+    <input type="range" id="surv1-slider" min="0" max="100" step="1" value="0">
+  </div>
+  <div class="ctrl">
+    <div class="ctrl-header">
+      <span class="ctrl-label" style="color:#60c0ff">Team 2 survival</span>
+      <span class="ctrl-value" id="surv2-val">0%</span>
+    </div>
+    <input type="range" id="surv2-slider" min="0" max="100" step="1" value="0">
+  </div>
   <button id="stop-btn">Stop</button>
   <button id="dl-btn">Download CSV</button>
 </div>
@@ -279,6 +293,7 @@ let lightningMean = 1800;  // ms — controlled by slider
 let cars = [];
 
 let hitRadius = 28; // px — how close a strike must be to destroy a car
+const survivalProb = { 1: 0, 2: 0 }; // probability (0–1) of surviving a hit, per team
 
 function initCars(n) {
   let t1idx = 0, t2idx = 0;
@@ -317,6 +332,16 @@ document.getElementById('radius-slider').addEventListener('input', function () {
   document.getElementById('radius-val').textContent = this.value;
 });
 
+document.getElementById('surv1-slider').addEventListener('input', function () {
+  survivalProb[1] = +this.value / 100;
+  document.getElementById('surv1-val').textContent = this.value + '%';
+});
+
+document.getElementById('surv2-slider').addEventListener('input', function () {
+  survivalProb[2] = +this.value / 100;
+  document.getElementById('surv2-val').textContent = this.value + '%';
+});
+
 // ── lightning ─────────────────────────────────────────────────────────────────
 
 const LIGHTNING_DURATION_MS = 350;
@@ -340,7 +365,7 @@ function spawnLightning() {
     const cx2 = cx + Math.cos(car.angle) * R;
     const cy2 = cy + Math.sin(car.angle) * R;
     const dist = Math.hypot(cx2 - tx, cy2 - ty);
-    if (dist <= hitRadius) {
+    if (dist <= hitRadius && Math.random() >= survivalProb[car.team]) {
       car.destroyed = true;
       explosions.push({ x: cx2, y: cy2, born: Date.now() });
     }
