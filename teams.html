@@ -1,0 +1,639 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Car Race — Teams</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: #0d0d1a;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      font-family: 'Courier New', monospace;
+      color: #eee;
+      gap: 20px;
+      padding: 20px;
+    }
+    .container {
+      display: flex;
+      gap: 32px;
+      align-items: center;
+    }
+    canvas { display: block; }
+    .scoreboard {
+      background: #12122a;
+      border: 1px solid #2a2a55;
+      border-radius: 12px;
+      padding: 20px;
+      min-width: 300px;
+    }
+    .scoreboard h2 {
+      text-align: center;
+      font-size: 16px;
+      letter-spacing: 3px;
+      color: #f0c040;
+      margin-bottom: 12px;
+      text-transform: uppercase;
+    }
+    .team-summary {
+      display: flex;
+      justify-content: space-around;
+      margin-bottom: 12px;
+      padding: 8px 4px;
+      border: 1px solid #2a2a55;
+      border-radius: 8px;
+      background: #0d0d1a;
+    }
+    .team-summary-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 3px;
+    }
+    .team-summary-label {
+      font-size: 11px;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+    }
+    .team-summary-label.t1 { color: #ff8060; }
+    .team-summary-label.t2 { color: #60c0ff; }
+    .team-summary-alive {
+      font-size: 20px;
+      font-weight: bold;
+    }
+    .team-summary-alive.t1 { color: #ff8060; }
+    .team-summary-alive.t2 { color: #60c0ff; }
+    .team-summary-sub {
+      font-size: 11px;
+      color: #555;
+    }
+    .car-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 7px 4px;
+      border-bottom: 1px solid #1e1e40;
+    }
+    .car-row:last-child { border-bottom: none; }
+    .car-row.destroyed { opacity: 0.45; }
+    .car-row.destroyed .car-label { text-decoration: line-through; }
+    .swatch {
+      width: 22px;
+      height: 13px;
+      border-radius: 3px;
+      flex-shrink: 0;
+    }
+    .car-row.destroyed .swatch { filter: grayscale(1); }
+    .team-badge {
+      font-size: 10px;
+      font-weight: bold;
+      letter-spacing: 1px;
+      padding: 2px 5px;
+      border-radius: 4px;
+      flex-shrink: 0;
+    }
+    .team-badge.t1 { background: #3a1a1a; color: #ff8060; border: 1px solid #ff8060; }
+    .team-badge.t2 { background: #1a2a3a; color: #60c0ff; border: 1px solid #60c0ff; }
+    .car-label { flex: 1; font-size: 13px; color: #ccc; }
+    .col-laps, .col-dist {
+      font-size: 14px;
+      font-weight: bold;
+      color: #f0c040;
+      text-align: right;
+      min-width: 44px;
+    }
+    .col-dist { min-width: 72px; color: #80cfff; }
+    .board-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 0 4px 6px 4px;
+      border-bottom: 1px solid #2a2a55;
+      margin-bottom: 4px;
+    }
+    .board-header .car-label { font-size: 11px; color: #555; text-transform: uppercase; letter-spacing: 1px; }
+    .board-header .col-laps, .board-header .col-dist { font-size: 11px; font-weight: normal; color: #555; text-transform: uppercase; letter-spacing: 1px; }
+    .destroyed-icon { font-size: 12px; margin-left: 2px; }
+
+    /* ── controls panel ── */
+    .controls {
+      background: #12122a;
+      border: 1px solid #2a2a55;
+      border-radius: 12px;
+      padding: 16px 24px;
+      display: flex;
+      gap: 40px;
+      align-items: center;
+    }
+    #stop-btn {
+      padding: 10px 28px;
+      border: none;
+      border-radius: 8px;
+      font-family: 'Courier New', monospace;
+      font-size: 13px;
+      font-weight: bold;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      cursor: pointer;
+      background: #e05050;
+      color: #fff;
+      transition: background 0.15s;
+    }
+    #stop-btn:hover { background: #c03030; }
+    #stop-btn.stopped { background: #3a9e5f; }
+    #stop-btn.stopped:hover { background: #2e7d4f; }
+    #dl-btn {
+      padding: 10px 28px;
+      border: none;
+      border-radius: 8px;
+      font-family: 'Courier New', monospace;
+      font-size: 13px;
+      font-weight: bold;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      cursor: pointer;
+      background: #3a6fd8;
+      color: #fff;
+      display: none;
+      transition: background 0.15s;
+    }
+    #dl-btn:hover { background: #2a55b0; }
+    .ctrl {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      min-width: 200px;
+    }
+    .ctrl-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+    }
+    .ctrl-label {
+      font-size: 12px;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: #888;
+    }
+    .ctrl-value {
+      font-size: 14px;
+      font-weight: bold;
+      color: #f0c040;
+    }
+    input[type=range] {
+      -webkit-appearance: none;
+      width: 100%;
+      height: 4px;
+      border-radius: 2px;
+      background: #2a2a55;
+      outline: none;
+      cursor: pointer;
+    }
+    input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: #f0c040;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+<div class="container">
+  <canvas id="c" width="620" height="620"></canvas>
+  <div class="scoreboard">
+    <h2>Results</h2>
+    <div class="team-summary" id="team-summary">
+      <div class="team-summary-item">
+        <span class="team-summary-label t1">Team 1</span>
+        <span class="team-summary-alive t1" id="t1-alive">—</span>
+        <span class="team-summary-sub" id="t1-sub"></span>
+      </div>
+      <div class="team-summary-item">
+        <span class="team-summary-label t2">Team 2</span>
+        <span class="team-summary-alive t2" id="t2-alive">—</span>
+        <span class="team-summary-sub" id="t2-sub"></span>
+      </div>
+    </div>
+    <div class="board-header">
+      <div class="swatch" style="background:transparent"></div>
+      <span style="width:32px;flex-shrink:0"></span>
+      <span class="car-label">Car</span>
+      <span class="col-laps">Laps</span>
+      <span class="col-dist">Distance</span>
+    </div>
+    <div id="board"></div>
+  </div>
+</div>
+
+<div class="controls">
+  <div class="ctrl">
+    <div class="ctrl-header">
+      <span class="ctrl-label">Mean time between strikes</span>
+      <span class="ctrl-value"><span id="mean-val">1800</span> ms</span>
+    </div>
+    <input type="range" id="mean-slider" min="200" max="6000" step="100" value="1800">
+  </div>
+  <div class="ctrl">
+    <div class="ctrl-header">
+      <span class="ctrl-label">Number of cars</span>
+      <span class="ctrl-value" id="cars-val">10</span>
+    </div>
+    <input type="range" id="cars-slider" min="1" max="100" step="1" value="10">
+  </div>
+  <div class="ctrl">
+    <div class="ctrl-header">
+      <span class="ctrl-label">Destruction radius</span>
+      <span class="ctrl-value"><span id="radius-val">28</span> px</span>
+    </div>
+    <input type="range" id="radius-slider" min="5" max="120" step="1" value="28">
+  </div>
+  <button id="stop-btn">Stop</button>
+  <button id="dl-btn">Download CSV</button>
+</div>
+
+<script>
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+const W = canvas.width, H = canvas.height;
+const cx = W / 2, cy = H / 2;
+const R = 220;       // track center radius
+const TW = 44;       // track width
+const SPEED = 0.009; // radians per frame (same for all cars)
+const TWO_PI = Math.PI * 2;
+
+// Team 1: warm hues (reds, oranges, yellows) 0–150°
+// Team 2: cool hues (cyans, blues, purples) 180–330°
+function teamColor(team, idx) {
+  if (team === 1) return `hsl(${Math.round((idx / 50) * 150)}, 90%, 60%)`;
+  return `hsl(${180 + Math.round((idx / 50) * 150)}, 90%, 60%)`;
+}
+
+// ── simulation state ──────────────────────────────────────────────────────────
+
+let lightningMean = 1800;  // ms — controlled by slider
+let cars = [];
+
+let hitRadius = 28; // px — how close a strike must be to destroy a car
+
+function initCars(n) {
+  let t1idx = 0, t2idx = 0;
+  cars = Array.from({ length: n }, (_, i) => {
+    const team = (i % 2) + 1;
+    const idx = team === 1 ? t1idx++ : t2idx++;
+    return {
+      id: i + 1,
+      team,
+      color: teamColor(team, idx),
+      angle: Math.random() * TWO_PI,
+      totalAngle: 0,
+      laps: 0,
+      destroyed: false,
+    };
+  });
+}
+
+initCars(10);
+
+// ── controls ──────────────────────────────────────────────────────────────────
+
+document.getElementById('mean-slider').addEventListener('input', function () {
+  lightningMean = +this.value;
+  document.getElementById('mean-val').textContent = this.value;
+});
+
+document.getElementById('cars-slider').addEventListener('input', function () {
+  const n = +this.value;
+  document.getElementById('cars-val').textContent = n;
+  initCars(n);
+});
+
+document.getElementById('radius-slider').addEventListener('input', function () {
+  hitRadius = +this.value;
+  document.getElementById('radius-val').textContent = this.value;
+});
+
+// ── lightning ─────────────────────────────────────────────────────────────────
+
+const LIGHTNING_DURATION_MS = 350;
+const lightnings = [];
+const explosions = []; // { x, y, born }
+let nextLightningAt = Date.now() + sampleExponential(lightningMean);
+
+function sampleExponential(mean) {
+  return -mean * Math.log(1 - Math.random());
+}
+
+function spawnLightning() {
+  const angle = Math.random() * TWO_PI;
+  const tx = cx + Math.cos(angle) * R;
+  const ty = cy + Math.sin(angle) * R;
+  lightnings.push({ tx, ty, born: Date.now(), bolt: buildBolt(tx, ty), radius: hitRadius });
+
+  // Check every active car for a hit
+  for (const car of cars) {
+    if (car.destroyed) continue;
+    const cx2 = cx + Math.cos(car.angle) * R;
+    const cy2 = cy + Math.sin(car.angle) * R;
+    const dist = Math.hypot(cx2 - tx, cy2 - ty);
+    if (dist <= hitRadius) {
+      car.destroyed = true;
+      explosions.push({ x: cx2, y: cy2, born: Date.now() });
+    }
+  }
+}
+
+function buildBolt(tx, ty) {
+  const pts = [{ x: tx + (Math.random() - 0.5) * 60, y: 0 }];
+  const steps = 8 + Math.floor(Math.random() * 5);
+  for (let i = 1; i <= steps; i++) {
+    const t = i / steps;
+    const x = pts[0].x + (tx - pts[0].x) * t + (Math.random() - 0.5) * 40 * (1 - t);
+    const y = ty * t;
+    pts.push({ x, y });
+  }
+  pts.push({ x: tx, y: ty });
+  return pts;
+}
+
+function drawLightnings(now) {
+  for (let i = lightnings.length - 1; i >= 0; i--) {
+    const ln = lightnings[i];
+    const age = now - ln.born;
+    if (age > LIGHTNING_DURATION_MS) { lightnings.splice(i, 1); continue; }
+
+    const t = age / LIGHTNING_DURATION_MS;
+    const alpha = t < 0.15 ? t / 0.15 : 1 - (t - 0.15) / 0.85;
+
+    if (t < 0.15) {
+      ctx.fillStyle = `rgba(200,220,255,${0.08 * alpha})`;
+      ctx.fillRect(0, 0, W, H);
+    }
+
+    ctx.save();
+    ctx.shadowColor = `rgba(160,200,255,${alpha})`;
+    ctx.shadowBlur = 24;
+    ctx.strokeStyle = `rgba(200,230,255,${alpha * 0.6})`;
+    ctx.lineWidth = 6;
+    strokeBolt(ln.bolt);
+    ctx.shadowBlur = 8;
+    ctx.strokeStyle = `rgba(255,255,255,${alpha})`;
+    ctx.lineWidth = 2;
+    strokeBolt(ln.bolt);
+    ctx.restore();
+
+    const gr = ctx.createRadialGradient(ln.tx, ln.ty, 0, ln.tx, ln.ty, 40);
+    gr.addColorStop(0, `rgba(200,220,255,${alpha * 0.7})`);
+    gr.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = gr;
+    ctx.beginPath();
+    ctx.arc(ln.tx, ln.ty, 40, 0, TWO_PI);
+    ctx.fill();
+
+    // Destruction radius ring
+    ctx.save();
+    ctx.strokeStyle = `rgba(255,80,80,${alpha * 0.85})`;
+    ctx.lineWidth = 2;
+    ctx.setLineDash([6, 4]);
+    ctx.shadowColor = `rgba(255,80,80,${alpha})`;
+    ctx.shadowBlur = 8;
+    ctx.beginPath();
+    ctx.arc(ln.tx, ln.ty, ln.radius, 0, TWO_PI);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.restore();
+  }
+}
+
+function strokeBolt(pts) {
+  ctx.beginPath();
+  ctx.moveTo(pts[0].x, pts[0].y);
+  for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
+  ctx.stroke();
+}
+
+const EXPLOSION_DURATION_MS = 600;
+
+function drawExplosions(now) {
+  for (let i = explosions.length - 1; i >= 0; i--) {
+    const ex = explosions[i];
+    const age = now - ex.born;
+    if (age > EXPLOSION_DURATION_MS) { explosions.splice(i, 1); continue; }
+
+    const t = age / EXPLOSION_DURATION_MS; // 0 → 1
+    const alpha = 1 - t;
+    const radius = 8 + t * 36;
+
+    // Expanding ring
+    ctx.save();
+    ctx.shadowColor = `rgba(255,160,50,${alpha})`;
+    ctx.shadowBlur = 16;
+    ctx.strokeStyle = `rgba(255,200,80,${alpha})`;
+    ctx.lineWidth = 3 * (1 - t);
+    ctx.beginPath();
+    ctx.arc(ex.x, ex.y, radius, 0, TWO_PI);
+    ctx.stroke();
+
+    // Inner fireball
+    const gr = ctx.createRadialGradient(ex.x, ex.y, 0, ex.x, ex.y, radius * 0.6);
+    gr.addColorStop(0, `rgba(255,240,100,${alpha * 0.9})`);
+    gr.addColorStop(0.5, `rgba(255,120,20,${alpha * 0.6})`);
+    gr.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = gr;
+    ctx.beginPath();
+    ctx.arc(ex.x, ex.y, radius * 0.6, 0, TWO_PI);
+    ctx.fill();
+    ctx.restore();
+  }
+}
+
+// ── drawing helpers ───────────────────────────────────────────────────────────
+
+function drawTrack() {
+  ctx.beginPath();
+  ctx.arc(cx, cy, R + TW * 0.85, 0, TWO_PI);
+  ctx.fillStyle = '#1a5c2a';
+  ctx.fill();
+
+  ctx.beginPath();
+  ctx.arc(cx, cy, R, 0, TWO_PI);
+  ctx.strokeStyle = '#3a3a3a';
+  ctx.lineWidth = TW;
+  ctx.stroke();
+
+  ctx.beginPath();
+  ctx.arc(cx, cy, R + TW / 2 - 3, 0, TWO_PI);
+  ctx.strokeStyle = '#cc2222';
+  ctx.lineWidth = 5;
+  ctx.stroke();
+
+  ctx.beginPath();
+  ctx.arc(cx, cy, R - TW / 2 + 3, 0, TWO_PI);
+  ctx.strokeStyle = '#cc2222';
+  ctx.lineWidth = 5;
+  ctx.stroke();
+
+  ctx.beginPath();
+  ctx.arc(cx, cy, R, 0, TWO_PI);
+  ctx.strokeStyle = 'rgba(255,255,255,0.18)';
+  ctx.lineWidth = 2;
+  ctx.setLineDash([14, 14]);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  ctx.beginPath();
+  ctx.arc(cx, cy, R - TW / 2 - 2, 0, TWO_PI);
+  ctx.fillStyle = '#1a5c2a';
+  ctx.fill();
+
+  ctx.save();
+  ctx.translate(cx, cy);
+  const barW = TW - 6;
+  const segments = 6;
+  const segH = barW / segments;
+  for (let s = 0; s < segments; s++) {
+    ctx.fillStyle = s % 2 === 0 ? '#fff' : '#000';
+    ctx.fillRect(R - TW / 2 + 3, -4 + s * segH, barW, segH);
+  }
+  ctx.restore();
+}
+
+function drawCar(car) {
+  const x = cx + Math.cos(car.angle) * R;
+  const y = cy + Math.sin(car.angle) * R;
+
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.rotate(car.angle + Math.PI / 2);
+
+  const bw = 10, bh = 20;
+
+  ctx.fillStyle = 'rgba(0,0,0,0.35)';
+  ctx.fillRect(-bw / 2 + 2, -bh / 2 + 2, bw, bh);
+
+  ctx.fillStyle = car.color;
+  ctx.beginPath();
+  ctx.roundRect(-bw / 2, -bh / 2, bw, bh, 3);
+  ctx.fill();
+
+  ctx.fillStyle = 'rgba(0,0,0,0.55)';
+  ctx.beginPath();
+  ctx.roundRect(-bw / 2 + 2, -bh / 2 + 2, bw - 4, 7, 1);
+  ctx.fill();
+
+  ctx.fillStyle = 'rgba(0,0,0,0.4)';
+  ctx.beginPath();
+  ctx.roundRect(-bw / 2 + 2, bh / 2 - 8, bw - 4, 5, 1);
+  ctx.fill();
+
+  // Team indicator dot on car roof
+  ctx.fillStyle = car.team === 1 ? 'rgba(255,128,96,0.9)' : 'rgba(96,192,255,0.9)';
+  ctx.beginPath();
+  ctx.arc(0, -bh / 2 - 4, 3, 0, TWO_PI);
+  ctx.fill();
+
+  ctx.restore();
+}
+
+// ── scoreboard ────────────────────────────────────────────────────────────────
+
+function updateBoard() {
+  const t1 = cars.filter(c => c.team === 1);
+  const t2 = cars.filter(c => c.team === 2);
+  const t1alive = t1.filter(c => !c.destroyed).length;
+  const t2alive = t2.filter(c => !c.destroyed).length;
+
+  document.getElementById('t1-alive').textContent = t1alive;
+  document.getElementById('t1-sub').textContent = `${t1.length - t1alive} out`;
+  document.getElementById('t2-alive').textContent = t2alive;
+  document.getElementById('t2-sub').textContent = `${t2.length - t2alive} out`;
+
+  const sorted = [...cars].sort((a, b) => b.laps - a.laps);
+  document.getElementById('board').innerHTML = sorted.map(car => {
+    const dist = Math.round(car.totalAngle / TWO_PI * 1000).toLocaleString() + ' m';
+    return `
+    <div class="car-row${car.destroyed ? ' destroyed' : ''}">
+      <div class="swatch" style="background:${car.color}"></div>
+      <span class="team-badge t${car.team}">T${car.team}</span>
+      <span class="car-label">Car ${car.id}${car.destroyed ? '<span class="destroyed-icon">&#9889;</span>' : ''}</span>
+      <span class="col-laps">${car.laps}${!running && !car.destroyed ? '+' : ''}</span>
+      <span class="col-dist">${dist}</span>
+    </div>`;
+  }).join('');
+}
+
+// ── animation loop ────────────────────────────────────────────────────────────
+
+function frame() {
+  const now = Date.now();
+  ctx.clearRect(0, 0, W, H);
+
+  ctx.fillStyle = '#0d0d1a';
+  ctx.fillRect(0, 0, W, H);
+
+  drawTrack();
+
+  if (now >= nextLightningAt) {
+    spawnLightning();
+    nextLightningAt = now + sampleExponential(lightningMean);
+  }
+  drawLightnings(now);
+  drawExplosions(now);
+
+  for (const car of cars) {
+    if (car.destroyed) continue;
+    const prev = car.angle;
+    car.angle = (car.angle + SPEED) % TWO_PI;
+    car.totalAngle += SPEED;
+    if (prev > TWO_PI * 0.75 && car.angle < TWO_PI * 0.25) {
+      car.laps++;
+    }
+    drawCar(car);
+  }
+
+  updateBoard();
+  if (running) requestAnimationFrame(frame);
+}
+
+// ── stop / resume ─────────────────────────────────────────────────────────────
+
+let running = true;
+
+document.getElementById('stop-btn').addEventListener('click', function () {
+  running = !running;
+  this.textContent = running ? 'Stop' : 'Resume';
+  this.classList.toggle('stopped', !running);
+  if (running) {
+    nextLightningAt = Date.now() + sampleExponential(lightningMean);
+    requestAnimationFrame(frame);
+  } else {
+    updateBoard(); // refresh immediately so "+" appears
+  }
+  document.getElementById('dl-btn').style.display = running ? 'none' : 'inline-block';
+});
+
+document.getElementById('dl-btn').addEventListener('click', function () {
+  const sorted = [...cars].sort((a, b) => b.laps - a.laps);
+  const rows = [['Car', 'Team', 'Status', 'Laps', 'Distance (m)']];
+  for (const car of sorted) {
+    const status = car.destroyed ? 'destroyed' : 'alive';
+    const laps = car.laps + (car.destroyed ? '' : '+');
+    const dist = Math.round(car.totalAngle / TWO_PI * 1000);
+    rows.push([`Car ${car.id}`, `Team ${car.team}`, status, laps, dist]);
+  }
+  const csv = rows.map(r => r.join(',')).join('\n');
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
+  a.download = 'race_results_teams.csv';
+  a.click();
+  URL.revokeObjectURL(a.href);
+});
+
+frame();
+</script>
+</body>
+</html>
