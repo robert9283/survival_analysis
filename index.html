@@ -188,7 +188,7 @@
       <span class="ctrl-label">Number of cars</span>
       <span class="ctrl-value" id="cars-val">10</span>
     </div>
-    <input type="range" id="cars-slider" min="1" max="20" step="1" value="10">
+    <input type="range" id="cars-slider" min="1" max="100" step="1" value="10">
   </div>
   <div class="ctrl">
     <div class="ctrl-header">
@@ -211,12 +211,9 @@ const TW = 44;       // track width
 const SPEED = 0.009; // radians per frame (same for all cars)
 const TWO_PI = Math.PI * 2;
 
-const ALL_COLORS = [
-  '#ff5252', '#ffd740', '#40c4ff', '#69f0ae', '#ff6d00',
-  '#e040fb', '#00e5ff', '#ff4081', '#b2ff59', '#ffab40',
-  '#ea80fc', '#64ffda', '#ff6e40', '#ccff90', '#80d8ff',
-  '#a7ffeb', '#ff9191', '#ffe57f', '#b388ff', '#84ffff',
-];
+const ALL_COLORS = Array.from({ length: 100 }, (_, i) =>
+  `hsl(${(i * 137.508) % 360}, 90%, 60%)`
+);
 
 // ── simulation state ──────────────────────────────────────────────────────────
 
