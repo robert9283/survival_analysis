@@ -169,7 +169,7 @@ dim(df)
 df
 ```
 
-Again we look at the Kaplan-Meier curves, but this time stratisfied over the two teams.
+Again we look at the Kaplan-Meier curves, but this time stratified over the two teams.
 
 ```{r}
 # Stratified Kaplan-Meier by team
@@ -195,7 +195,7 @@ survfit2(Surv(distance_m, event) ~ Team, data = df) %>%
 
 ```
 
-We will apply a Cox Proportional Hazard model. That is we assume that the hazard function as a semi-parametric form. The function $h_0$ is not known and $x_i$ represents the covariates for a sample.
+We will apply a Cox Proportional Hazard model which is semi-parametric. In this model wee assume the hazard function takes the form:
 
 $$
 \begin{aligned}
@@ -203,7 +203,7 @@ h_i(t) &= h_0(t) \exp(\beta x_i),
 \end{aligned}
 $$
 
-If we look at a sample of the first team and second team, let us say $i$ and $j$ , we can compute the ratio of their hazards even though we do not know $h_0$. That is:
+The function $h_0$ is not known and $x_i$ represents the covariates for a sample. If we look at a sample of the first team and second team, let us say $i$ and $j$ , we can compute the ratio of their hazards even though we do not know $h_0$. That is:
 
 $$
 \begin{aligned}
@@ -211,23 +211,24 @@ $$
 \end{aligned}
 $$
 
-Depending on the encoding the ratio is \$exp(beta)\$
+Since Team 1 = 1 and Team 2 = 0, when comparing team 1 ($x_i = 1$) to team 2 ($x_j = 0$) the hazard ratio simplifies to $e^{\beta}$.
 
 Let us fit the model:
 
 ```{r}
 # Fit the Cox Proportional Hazards model
-cox_fit <- coxph(Surv(distance_m, event) ~ Team, data = df)
-summary(cox_fit)
+cox_null <- coxph(Surv(distance_m, event) ~ 1, data = df)
+cox_team <- coxph(Surv(distance_m, event) ~ Team, data = df)
+summary(cox_team)
 ```
 
-We can see for example that the hazard ratio between the teams is $0.1980$.
+We can see for example that the hazard ratio between the teams is $0.1980$. Since the confidence interval does not include $1$ the difference is signficantley different under a level of $0.05$ .
 
 The proportional hazard model assumes that the hazard ratio between the two groups is constant over time.
 
 ```{r}
 # Test the proportional hazards assumption via Schoenfeld residuals
-ph_test <- cox.zph(cox_fit)
+ph_test <- cox.zph(cox_team)
 plot(ph_test, main = "Schoenfeld Residuals — Team")
 ```
 
@@ -236,5 +237,7 @@ plot(ph_test, main = "Schoenfeld Residuals — Team")
 print(ph_test)
 ```
 
-```{print("s")}
+Since $p > 0.05$ the PH assumption is not rejected.
+
+```{}
 ```
