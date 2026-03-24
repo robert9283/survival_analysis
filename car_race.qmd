@@ -213,7 +213,43 @@ $$
 
 Since Team 1 = 1 and Team 2 = 0, when comparing team 1 ($x_i = 1$) to team 2 ($x_j = 0$) the hazard ratio simplifies to $e^{\beta}$.
 
-Let us fit the model:
+Note, that this does not mean that ratio of the survival functions is $e^{\beta}$. The hazard function is related to the survival function of the model via:
+
+$$
+\begin{aligned}
+S(t) &= \exp(-\int_0^t h(u)), 
+\end{aligned}
+$$
+
+and therefore
+
+$$
+\begin{aligned}
+S_i(t) &= \exp(-\int_0^t h_0(u) \exp(\beta x_i)du), \\
+ &= \exp(-\exp(\beta x_i) \int_0^t h_0(u) du), \\
+ &= \exp(- H_0(t) )^{\exp(\beta x_i)}, \\
+ &= S_0(t)^{\exp(\beta x_i)}, \\
+\end{aligned}
+$$
+
+Consequently, we have for the two groups;
+
+$$
+\begin{aligned}
+S_1(t) &= S_0(t)^{\exp(\beta)}, \\
+S_2(t) &= S_0(t),
+\end{aligned}
+$$
+
+So the ratio of the survival functions of the two groups depends on $t$ and is therefore not constant over time. Instead we have
+
+$$
+\begin{aligned}
+S_1(t) &= S_2(t)^{\exp(\beta)}, 
+\end{aligned}
+$$
+
+Let us now fit the model:
 
 ```{r}
 # Fit the Cox Proportional Hazards model
@@ -224,7 +260,25 @@ summary(cox_team)
 
 We can see for example that the hazard ratio between the teams is $0.1980$. Since the confidence interval does not include $1$ the difference is signficantley different under a level of $0.05$ .
 
-The proportional hazard model assumes that the hazard ratio between the two groups is constant over time.
+Using the above calculations showing the relation between the survival curves in the two groups we can plot the survival curve of the second group against the survival curve of the first group.
+
+```{r}
+s2_seq <- seq(0, 1, length.out = 200)
+theory  <- data.frame(S2 = s2_seq, S1 = s2_seq^0.198)
+
+ggplot(theory, aes(x = S2, y = S1)) +
+  geom_line(color = "firebrick") +
+  geom_abline(intercept = 0, slope = 1, linetype = "dashed", color = "grey50") +
+  labs(x = expression(S[2](t)), 
+       y = expression(S[1](t)),
+       title = "Survival-Survival Plot",
+       subtitle = expression(S[1] == S[2]^{0.198})) +
+  theme_minimal()
+
+
+```
+
+The proportional hazard model assumes that the hazard ratio between the two groups is constant over time. We can test this assumption:
 
 ```{r}
 # Test the proportional hazards assumption via Schoenfeld residuals
@@ -239,5 +293,5 @@ print(ph_test)
 
 Since $p > 0.05$ the PH assumption is not rejected.
 
-```{}
+```         
 ```
