@@ -1,0 +1,169 @@
+---
+title: "Survival_ana"
+format: html
+editor: visual
+---
+
+## Survival Analysis
+
+Data is taken from the simulation in the same folder.
+
+```{r}
+library(survival)
+library(dplyr)
+library(ggplot2)
+library(ggsurvfit)
+library(flexsurv)
+```
+
+## Preparing Data
+
+We load the dataset and prepare the data:
+
+```{r}
+df <- read.table("race_results.csv", sep = ",", header = TRUE)
+dim(df)
+```
+
+You can add options to executable code like this
+
+```{r}
+head(df)
+```
+
+The `echo: false` option disab
+
+```{r}
+# Clean column names
+colnames(df) <- c("car", "status", "laps", "distance_m")
+colnames(df)
+```
+
+les the printing of code (only output is displayed).
+
+```{r}
+df$distance_m
+```
+
+```{r}
+# Create binary event indicator: 1 = destroyed, 0 = censored (alive)
+df <- df %>%
+  mutate(
+    event = ifelse(status == "destroyed", 1, 0),
+    
+    # Parse laps: strip the "+" suffix and convert to numeric
+    laps_numeric = as.numeric(gsub("\\+", "", laps))
+  )
+```
+
+```{r}
+df
+```
+
+```{r}
+
+# Create the Surv object (using distance as the time scale)
+surv_obj <- Surv(time = df$distance_m, event = df$event)
+
+# Quick sanity check
+summary(surv_obj)
+```
+
+## Analysis
+
+Let us start by looking at the Kaplan-Meier model. The curve in the plot below is an estimation of the Survival function $S(t)=1-F(t)$ . This model is non-parametric, i.e. no assumption about the distribution of the survival is made.
+
+```{r}
+# Fit the Kaplan-Meier model
+km_fit <- survfit(surv_obj ~ 1, data = df)
+
+# Summary with confidence intervals
+summary(km_fit)
+
+# Plot using ggsurvfit
+survfit2(Surv(distance_m, event) ~ 1, data = df) %>%
+  ggsurvfit(linewidth = 1) +
+  add_confidence_interval() +
+  add_risktable() +
+  add_censor_mark() +
+  scale_x_continuous(
+    name = "Distance (m)",
+    breaks = seq(0, 7000, by = 1000)
+  ) +
+  scale_y_continuous(
+    name = "Survival Probability",
+    limits = c(0, 1),
+    labels = scales::percent
+  ) +
+  labs(
+    title = "Kaplan-Meier Survival Curve",
+    subtitle = "Survival probability of cars by distance driven"
+  ) +
+  theme_minimal(base_size = 13)
+```
+
+We observe that the Survival curve looks fairly linear. This suggests that:
+
+-   lightning strikes seem to occur everywhere along the race with same probability
+
+-   the rate of destruction remains constant
+
+```{r}
+# Fit the exponential model
+exp_fit <- flexsurvreg(Surv(distance_m, event) ~ 1, 
+                       data = df, 
+                       dist = "exp")
+
+# Print the model summary
+print(exp_fit)
+```
+
+```{r}
+
+# Extract lambda
+lambda <- exp_fit$res["rate", "est"]
+cat("Lambda (hazard rate):", lambda, "\n")
+cat("Mean survival distance (1/lambda):", 1/lambda, "m\n")
+
+# Plot KM curve with exponential model overlaid
+plot(km_fit,
+     xlab = "Distance (m)",
+     ylab = "Survival Probability",
+     main = "KM Curve vs Exponential Model",
+     conf.int = TRUE,
+     col = "steelblue",
+     lwd = 2)
+
+# Overlay the fitted exponential curve
+t_seq <- seq(0, max(df$distance_m), length.out = 500)
+lines(t_seq, exp(-lambda * t_seq), 
+      col = "firebrick", lwd = 2, lty = 2)
+
+legend("topright",
+       legend = c("Kaplan-Meier", "Exponential fit"),
+       col = c("steelblue", "firebrick"),
+       lwd = 2, lty = c(1, 2))
+```
+
+```{r}
+```
+
+## Covariates
+
+Let us look at a similar dataset but with covariates.
+
+```{r}
+df <- read.table("race_results_teams.csv", sep = ",", header = TRUE)
+df <- df %>%
+  mutate(
+    event = ifelse(Status == "destroyed", 1, 0),
+    Team = ifelse(Team == "Team 1", 1, 0),
+    # Parse laps: strip the "+" suffix and convert to numeric
+    laps_numeric = as.numeric(gsub("\\+", "", Laps))
+  )
+dim(df)
+```
+
+```{r}
+df
+```
