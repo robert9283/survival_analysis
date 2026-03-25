@@ -195,7 +195,7 @@ survfit2(Surv(distance_m, event) ~ Team, data = df) %>%
 
 ```
 
-We will apply a Cox Proportional Hazard model which is semi-parametric. In this model wee assume the hazard function takes the form:
+This time, we will apply a Cox Proportional Hazard model which is semi-parametric. In this model wee assume the hazard function takes the form:
 
 $$
 \begin{aligned}
@@ -255,6 +255,12 @@ Let us now fit the model:
 # Fit the Cox Proportional Hazards model
 cox_null <- coxph(Surv(distance_m, event) ~ 1, data = df)
 cox_team <- coxph(Surv(distance_m, event) ~ Team, data = df)
+anova(cox_null, cox_team)
+```
+
+The p-value is 0.001 indicating that it is justified to include the categorical variable "Team" into the model.
+
+```{r}
 summary(cox_team)
 ```
 
@@ -293,5 +299,19 @@ print(ph_test)
 
 Since $p > 0.05$ the PH assumption is not rejected.
 
-```         
+In our case, since we simulated our data, we know actually what the hazard ratio is. The hazard function $h(t)$ is the rate of destruction given a car has made it until $t$. I.e. of the cars that have survived up to distance $t$, the expected fraction to be destroyed in the next small stretch $dt$ is $h(t)$. When creating the simulated data we have a parameter determining the probability that a car survives a lightning strike. We claim for Team 2 this parameter was zero and for Team 1 was $p=0.72$. That is a car in Team 1 is destroyed with $1-p$ . So we would expect that the hazard ratio $\frac{h_1(t)}{h_2(t)}$ between the two teams is $1-p$ and consequently $\beta = \log(1-p) = -1.272966$. We can test this hypothesis:
+
+```{r}
+# Fit model with beta fixed at log(0.28) using offset
+df$offset_val <- log(1 - 0.72) * df$Team
+# The offset in a Cox model allows you to fix a coefficient at a specific value rather than estimating it from the data.
+cox_fixed <- coxph(Surv(distance_m, event) ~ offset(offset_val), data = df)
+cox_free  <- coxph(Surv(distance_m, event) ~ Team, data = df)
+
+anova(cox_fixed, cox_free)
+```
+
+As expected, there is no statistically significant evidence at the $\alpha = 0.05$ level that the estimated hazard ratio differs from the true value $1 - p = 0.28$.
+
+```{}
 ```
