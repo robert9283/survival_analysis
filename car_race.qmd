@@ -14,7 +14,7 @@ The analysis is structured in two parts.
 
 -   In the second part, the simulation is extended to two teams with different survival probabilities upon a lightning strike. A Cox Proportional Hazards model is used to estimate and test the hazard ratio between the two teams.
 
-Since the data is generated from a simulation with known parameters, the statistical results can be verified against the true underlying values, providing a useful sanity check of the methodology.. You can find the html page used for data generation in the same folder.
+Since the data is generated from a simulation with known parameters, the statistical results can be verified against the true underlying values, providing a useful sanity check of the methodology. You can find the html page used for data generation in the same folder.
 
 ```{r}
 library(survival)
@@ -54,8 +54,6 @@ colnames(df)
 ```
 
 ```{r}
-df$distance_m
-
 ggplot(df, aes(x = distance_m)) +
   geom_histogram(binwidth = 200, fill = "steelblue", color = "white") +
   labs(x = "Distance (m)", y = "Count", title = "Histogram of Distance") +
@@ -254,7 +252,7 @@ survfit2(Surv(distance_m, event) ~ Team, data = df) %>%
 
 ```
 
-This time, we will apply a Cox Proportional Hazard model which is semi-parametric. In this model wee assume the hazard function takes the form:
+This time, we will apply a Cox Proportional Hazard model which is semi-parametric. In this model we assume the hazard function takes the form:
 
 $$
 \begin{aligned}
@@ -276,7 +274,7 @@ Note, that this does not mean that ratio of the survival functions is $e^{\beta}
 
 $$
 \begin{aligned}
-S(t) &= \exp(-\int_0^t h(u)), 
+S(t) &= \exp(-\int_0^t h(u)\,du),
 \end{aligned}
 $$
 
@@ -286,7 +284,7 @@ $$
 \begin{aligned}
 S_i(t) &= \exp(-\int_0^t h_0(u) \exp(\beta x_i)du), \\
  &= \exp(-\exp(\beta x_i) \int_0^t h_0(u) du), \\
- &= \exp(- H_0(t) )^{\exp(\beta x_i)}, \\
+ &= \left[\exp(-H_0(t))\right]^{\exp(\beta x_i)}, \\
  &= S_0(t)^{\exp(\beta x_i)}, \\
 \end{aligned}
 $$
@@ -323,7 +321,7 @@ The p-value is 0.001 indicating that it is justified to include the categorical 
 summary(cox_team)
 ```
 
-We can see for example that the hazard ratio between the teams is $0.1980$. Since the confidence interval does not include $1$ the difference is signficantley different under a level of $0.05$ .
+We can see for example that the hazard ratio between the teams is $0.1980$. Since the confidence interval does not include $1$ the difference is significantly different under a level of $0.05$ .
 
 Using the above calculations showing the relation between the survival curves in the two groups we can plot the survival curve of the second group against the survival curve of the first group.
 
@@ -372,5 +370,3 @@ anova(cox_fixed, cox_free)
 
 As expected, there is no statistically significant evidence at the $\alpha = 0.05$ level that the estimated hazard ratio differs from the true value $1 - p = 0.28$.
 
-```         
-```
