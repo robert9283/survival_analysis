@@ -1,5 +1,10 @@
 # Survival Analysis of a Car Racing Simulation
 
+## Live Demo
+
+- [Single-team simulation](https://robert9283.github.io/survival_analysis/)
+- [Two-team simulation](https://robert9283.github.io/survival_analysis/teams.html)
+
 ## Overview
 
 This project demonstrates survival analysis techniques applied to data generated from a browser-based car racing simulation. In the simulation, cars drive along a track and are subject to random lightning strikes that may destroy them. The distance driven until destruction is treated as the survival time, allowing classical survival analysis methods to be applied and verified against known simulation parameters.
